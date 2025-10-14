@@ -1,5 +1,45 @@
 
 ├── .gitignore
+├── boards
+│   └── esp32s3_n16r8.json
+│           # Contents of esp32s3_n16r8.json:
+│           {
+│             "build": {
+│               "arduino": {
+│                 "ldscript": "esp32s3_out.ld",
+│                 "memory_type": "qio_opi",
+│                 "partitions": "default_16MB.csv"
+│               },
+│               "core": "esp32",
+│               "f_cpu": "240000000L",
+│               "f_flash": "80000000L",
+│               "flash_mode": "qio",
+│               "mcu": "esp32s3",
+│               "variant": "esp32s3"
+│             },
+│             "connectivity": [
+│               "wifi",
+│               "bluetooth"
+│             ],
+│             "debug": {
+│               "openocd_target": "esp32s3.cfg"
+│             },
+│             "frameworks": [
+│               "arduino",
+│               "espidf"
+│             ],
+│             "name": "ESP32-S3 N16R8 (16MB QSPI Flash, 8MB OPI PSRAM)",
+│             "upload": {
+│               "flash_size": "16MB",
+│               "maximum_ram_size": 327680,
+│               "maximum_size": 16777216,
+│               "require_upload_port": true,
+│               "speed": 460800
+│             },
+│             "url": "https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/hw-reference/esp32s3/user-guide-devkitc-1.html",
+│             "vendor": "Espressif"
+│           }
+
 ├── copilot-instructions.md
 │       # Contents of copilot-instructions.md:
 │       # copilot-instructions.md
@@ -92,8 +132,8 @@
 │       │           config.pin_pwdn = PWDN_GPIO_NUM;
 │       │           config.pin_reset = RESET_GPIO_NUM;
 │       │           config.pin_xclk = XCLK_GPIO_NUM;
-│       │           config.pin_sscb_sda = SIOD_GPIO_NUM;
-│       │           config.pin_sscb_scl = SIOC_GPIO_NUM;
+│       │           config.pin_sccb_sda = SIOD_GPIO_NUM; // <-- Updated from pin_sscb_sda
+│       │           config.pin_sccb_scl = SIOC_GPIO_NUM; // <-- Updated from pin_sscb_scl
 │       │           config.pin_d7 = Y9_GPIO_NUM;
 │       │           config.pin_d6 = Y8_GPIO_NUM;
 │       │           config.pin_d5 = Y7_GPIO_NUM;
@@ -119,7 +159,8 @@
 │       │           switch (model) {
 │       │               case CameraModel::OV2640:
 │       │                   config.pixel_format = PIXFORMAT_JPEG;
-│       │                   config.frame_size = FRAMESIZE_UXGA; // 1600x1200
+│       │                   // Using a smaller frame size for initial testing to reduce memory usage
+│       │                   config.frame_size = FRAMESIZE_VGA; // <-- Changed from FRAMESIZE_UXGA
 │       │                   break;
 │       │               case CameraModel::OV5640:
 │       │                   config.pixel_format = PIXFORMAT_JPEG;
@@ -162,9 +203,6 @@
 │               };
 │               #endif
 
-├── output_tree_full.txt
-│       # Contents of output_tree_full.txt:
-
 ├── platformio.ini
 │       # Contents of platformio.ini:
 │       ; PlatformIO Project Configuration File
@@ -180,18 +218,11 @@
 │       ; PlatformIO Project Configuration File
 │       [env:esp32s3_n16r8_basic_psram_test]
 │       platform = espressif32
-│       board = esp32-s3-devkitc-1
+│       board = esp32s3_n16r8
 │       framework = arduino
 │       monitor_speed = 115200
 │       
-│       board_build.f_flash = 80000000L
-│       board_build.flash_mode = qio
-│       
-│       board_build.with_psram = yes
-│       board_build.psram_type = opi
-│       
 │       build_flags =
-│           -DBOARD_HAS_PSRAM
 │           -D CAMERA_MODEL_ESP32S3_EYE
 
 ├── src
@@ -205,7 +236,7 @@
 │             Serial.begin(115200);
 │             delay(2000);
 │             Serial.println("--- Starting Camera Initialization (Final Attempt) ---");
-│             bool init_success = cam.init(CameraModel::OV2640); // <-- Please double check this line!
+│             bool init_success = cam.init(CameraModel::OV2640);
 │             if (init_success) {
 │               Serial.println("==============================================");
 │               Serial.println("      CAMERA INITIALIZED SUCCESSFULLY!");

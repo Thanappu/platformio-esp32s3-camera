@@ -42,7 +42,18 @@ def display_repo_tree(startpath, output_file):
         # รวมไฟล์สำคัญ หรือไฟล์ที่มีนามสกุลที่กำหนดไว้
         return basename in IMPORTANT_FILES or path.endswith(INCLUDED_EXTENSIONS)
 
-    with open(output_file, 'w', encoding='utf-8') as out_file:
+    # ===== เขียนทับไฟล์อย่างปลอดภัย =====
+    tmp_file = output_file + ".tmp"
+
+    # ลบไฟล์ temp เก่าถ้ามี
+    if os.path.exists(tmp_file):
+        os.remove(tmp_file)
+
+    # ลบไฟล์จริงเก่าด้วย (กันไฟล์ซ้อน)
+    if os.path.exists(output_file):
+        os.remove(output_file)
+
+    with open(tmp_file, 'w', encoding='utf-8') as out_file:
         out_file.write(os.path.basename(startpath) + '\n')
 
         def walk_dir(path, level=0, is_last_list=[]):
@@ -83,6 +94,10 @@ def display_repo_tree(startpath, output_file):
                         out_file.write(f"{content_prefix}[Error reading file: {e}]\n")
 
         walk_dir(startpath)
+
+    # เมื่อเขียนครบ -> ย้าย temp ไปเป็นไฟล์จริง
+    os.replace(tmp_file, output_file)
+
 
 # --- วิธีใช้ ---
 if __name__ == "__main__":
