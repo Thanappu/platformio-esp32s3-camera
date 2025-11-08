@@ -177,7 +177,6 @@
 │       │               Serial.printf("Camera init failed with error 0x%x\n", err);
 │       │               return false;
 │       │           }
-│       │       
 │       │           Serial.println("Camera initialized successfully");
 │       │           return true;
 │       │       }
@@ -216,23 +215,97 @@
 │       ; https://docs.platformio.org/page/projectconf.html
 │       
 │       ; PlatformIO Project Configuration File
-│       [env:esp32s3_n16r8_basic_psram_test]
+│       [env:main_program]
 │       platform = espressif32
 │       board = esp32s3_n16r8
 │       framework = arduino
-│       monitor_speed = 115200
-│       
 │       build_flags =
 │           -D CAMERA_MODEL_ESP32S3_EYE
+│       src_filter = +<main.cpp> -<test_hw.cpp> -<test_camera.cpp>
+│       
+│       [env:test_hw]
+│       platform = espressif32
+│       board = esp32s3_n16r8
+│       framework = arduino
+│       build_flags =
+│           -D CAMERA_MODEL_ESP32S3_EYE
+│       src_filter = +<test_hw.cpp> -<main.cpp> -<test_camera.cpp>
+│       
+│       [env:test_camera]
+│       platform = espressif32
+│       board = esp32s3_n16r8
+│       framework = arduino
+│       build_flags =
+│           -D CAMERA_MODEL_ESP32S3_EYE
+│       src_filter = +<test_camera.cpp> -<main.cpp> -<test_hw.cpp>
 
 ├── src
-│   └── main.cpp
-│           # Contents of main.cpp:
+│   ├── main.cpp
+│   │       # Contents of main.cpp:
+│   │       // src/main.cpp
+│   │       #include <Arduino.h>
+│   │       #include "camera_lib.h"
+│   │       #define LED_BUILTIN 48
+│   │       CameraBase cam;
+│   │       void setup() {
+│   │         neopixelWrite(RGB_BUILTIN, 0, 0, 0);
+│   │         Serial.begin(115200);
+│   │         delay(2000);
+│   │         Serial.println("--- Starting Camera Initialization (Final Attempt) ---");
+│   │         bool init_success = cam.init(CameraModel::OV2640);
+│   │         if (init_success) {
+│   │           Serial.println("==============================================");
+│   │           Serial.println("      CAMERA INITIALIZED SUCCESSFULLY!");
+│   │           Serial.println("==============================================");
+│   │         } else {
+│   │           Serial.println("!!! Camera initialization failed. Halting execution.");
+│   │           while (1) { delay(1000); }
+│   │         }
+│   │       }
+│   │       void loop() {
+│   │         printf("Camera is running...\n");
+│   │         delay(2000);
+│   │       }
+
+│   ├── test_camera.cpp
+│   │       # Contents of test_camera.cpp:
+│   │       // src/main.cpp
+│   │       #include <Arduino.h>
+│   │       #include "camera_lib.h"
+│   │       #define LED_BUILTIN 48
+│   │       CameraBase cam;
+│   │       void setup() {
+│   │         neopixelWrite(RGB_BUILTIN, 0, 0, 0);
+│   │         Serial.begin(115200);
+│   │         delay(2000);
+│   │         Serial.println("--- Starting Camera Initialization (Final Attempt) ---");
+│   │         bool init_success = cam.init(CameraModel::OV2640);
+│   │         if (init_success) {
+│   │           Serial.println("==============================================");
+│   │           Serial.println("      CAMERA INITIALIZED SUCCESSFULLY!");
+│   │           Serial.println("==============================================");
+│   │         } else {
+│   │           Serial.println("!!! Camera initialization failed. Halting execution.");
+│   │           while (1) { delay(1000); }
+│   │         }
+│   │       }
+│   │       void loop() {
+│   │         printf("Camera is running...\n");
+│   │         delay(2000);
+│   │       }
+
+│   └── test_hw.cpp
+│           # Contents of test_hw.cpp:
 │           // src/main.cpp
 │           #include <Arduino.h>
 │           #include "camera_lib.h"
+│           #define RGB_BUILTIN 48
+│           #define SWITCH_BUILTIN 0
 │           CameraBase cam;
+│           bool switch_state = false;
 │           void setup() {
+│             pinMode(SWITCH_BUILTIN, INPUT);
+│             neopixelWrite(RGB_BUILTIN, 0, 0, 0);
 │             Serial.begin(115200);
 │             delay(2000);
 │             Serial.println("--- Starting Camera Initialization (Final Attempt) ---");
@@ -246,6 +319,25 @@
 │               while (1) { delay(1000); }
 │             }
 │           }
-│           void loop() { delay(5000); }
+│           void loop() {
+│           switch_state = digitalRead(SWITCH_BUILTIN);
+│             if (switch_state == false){
+│               /* code */
+│               neopixelWrite(RGB_BUILTIN, 255, 0, 0);   // แดง
+│               delay(100);
+│               neopixelWrite(RGB_BUILTIN, 0, 255, 0);   // เขียว
+│               delay(100);
+│               neopixelWrite(RGB_BUILTIN, 0, 0, 255);   // น้ำเงิน
+│               delay(100);
+│             }
+│             else{
+│               neopixelWrite(RGB_BUILTIN, 255, 0, 0);   // แดง
+│               delay(1000);
+│               neopixelWrite(RGB_BUILTIN, 0, 255, 0);   // เขียว
+│               delay(1000);
+│               neopixelWrite(RGB_BUILTIN, 0, 0, 255);   // น้ำเงิน
+│               delay(1000);
+│             }
+│           }
 
 └── test

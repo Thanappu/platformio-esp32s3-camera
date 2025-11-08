@@ -1,7 +1,7 @@
 // lib/camera_lib/camera_lib.cpp
-
 #include <Arduino.h>
 #include "camera_lib.h"
+
 
 // =================================================================
 // ==      BOARD PINOUT CONFIGURATION - SELECT IN platformio.ini  ==
@@ -58,7 +58,7 @@
 
 CameraBase::CameraBase() {}
 
-bool CameraBase::init(CameraModel model) {
+bool CameraBase::init(CameraModel model, pixformat_t format, bool vflip, bool hmirror) {
     // Pin configuration is set by the defines above
     config.pin_pwdn = PWDN_GPIO_NUM;
     config.pin_reset = RESET_GPIO_NUM;
@@ -83,19 +83,28 @@ bool CameraBase::init(CameraModel model) {
     config.xclk_freq_hz = 20000000;
     config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
     config.fb_location = CAMERA_FB_IN_PSRAM;
-    config.jpeg_quality = 12;
-    config.fb_count = 1;
+    config.pixel_format = format;
+
+    if (format == PIXFORMAT_JPEG) {
+        config.jpeg_quality = 12;
+        config.fb_count = 1; // For JPEG, 1 buffer is often enough
+    } else {
+        config.fb_count = 2; // For other formats like RGB565, 2 buffers are recommended
+    }
 
     // Configure based on the camera sensor model
     switch (model) {
         case CameraModel::OV2640:
-            config.pixel_format = PIXFORMAT_JPEG;
-            // Using a smaller frame size for initial testing to reduce memory usage
-            config.frame_size = FRAMESIZE_VGA; // <-- Changed from FRAMESIZE_UXGA
+            if (format == PIXFORMAT_RGB565) {
+                config.frame_size = FRAMESIZE_QCIF;
+            } else {
+                // Otherwise, use a default like VGA for JPEG
+                config.frame_size = FRAMESIZE_VGA;
+            }
             break;
         case CameraModel::OV5640:
-            config.pixel_format = PIXFORMAT_JPEG;
-            config.frame_size = FRAMESIZE_QSXGA; // 2560x1920
+            // For this example, we'll keep a high resolution for JPEG on OV5640
+            config.frame_size = FRAMESIZE_QSXGA;
             break;
         default:
             Serial.println("Unknown camera sensor model");
@@ -108,7 +117,91 @@ bool CameraBase::init(CameraModel model) {
         Serial.printf("Camera init failed with error 0x%x\n", err);
         return false;
     }
+// --- NEW: Set Vertical Flip and Horizontal Mirror ---
+    sensor_t *s = esp_camera_sensor_get();
+    if (s) {
+        s->set_vflip(s, (int)vflip);
+        s->set_hmirror(s, (int)hmirror);
+    } else {
+        Serial.println("Warning: Could not get sensor object to set flip/mirror.");
+    }
+    // --- END NEW ---
 
     Serial.println("Camera initialized successfully");
     return true;
+}
+/**
+ * @brief Gets the frame buffer from the camera.
+ * @return A pointer to the camera_fb_t struct, or nullptr on failure.
+ * @note Remember to return the buffer using returnFrameBuffer()!
+ */
+camera_fb_t* CameraBase::getFrameBuffer() {
+    camera_fb_t* fb = esp_camera_fb_get();
+    if (!fb) {
+        Serial.println("Failed to get frame buffer");
+    }
+    return fb;
+}
+
+/**
+ * @brief Returns the frame buffer to the camera driver.
+ * @param fb A pointer to the camera_fb_t struct to be returned.
+ */
+void CameraBase::returnFrameBuffer(camera_fb_t* fb) {
+    if (fb) {
+        esp_camera_fb_return(fb);
+    }
+}
+/**
+ * @brief Captures an RGB565 frame and prints it to Serial as a HEX array,
+ *        swapping the byte order to match the TinyML example.
+ *        Format: "0x[Byte2][Byte1], 0x[Byte4][Byte3], ..."
+ */
+void CameraBase::printFrameAsHex() {
+    camera_fb_t *fb = getFrameBuffer();
+    if (!fb) {
+        Serial.println("Failed to get frame buffer.");
+        return;
+    }
+
+    if (fb->format != PIXFORMAT_RGB565) {
+        Serial.println("\nError: Pixel format is not RGB565. Cannot print HEX array.");
+        returnFrameBuffer(fb);
+        return;
+    }
+    
+    // fb->len is the total number of bytes
+    Serial.print("HEXADECIMAL_BYTES = [\n    ");
+    for (size_t i = 0; i < fb->len; i += 2) {
+        // Get the two bytes for one pixel
+        byte msb = fb->buf[i];   // Most Significant Byte
+        byte lsb = fb->buf[i+1]; // Least Significant Byte
+
+        Serial.print("0x");
+        
+        // Print the bytes in swapped order (LSB then MSB) and ensure two digits with leading zero if needed
+        if (lsb < 0x10) {
+            Serial.print("0");
+        }
+        Serial.print(lsb, HEX);
+
+        if (msb < 0x10) {
+            Serial.print("0");
+        }
+        Serial.print(msb, HEX);
+        
+        // Print a comma and space, unless it's the very last pixel
+        if (i < fb->len - 2) {
+            Serial.print(", ");
+        }
+
+        // Add a newline every 8 pixels for readability
+        if ((i/2 + 1) % 8 == 0) {
+            Serial.println();
+            Serial.print("    ");
+        }
+    }
+    Serial.println("\n]");
+    
+    returnFrameBuffer(fb); 
 }
